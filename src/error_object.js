@@ -58,9 +58,15 @@ export default class Errors {
   /**
    * 紀錄錯誤內容
    *
-   * @param {Object} errors axios 從 server 收到的 error 物件
+   * axios 只有在收到 server 回應時才帶 response。連線中斷、CORS 被擋、逾時、
+   * 請求被中止都會產生沒有 response 的 error，而那不是邊緣情況 —— 呼叫端
+   * 是統一的 API 失敗處理路徑，任何一種失敗都會走到這裡。
+   *
+   * @param {Object} errors axios 的 error 物件，不保證帶 response
    */
   record(errors) {
+    if (!errors || !errors.response) return
+
     if (errors.response.status === 422) {
       this.errors = errors.response.data
     }

@@ -1,6 +1,6 @@
 {
   "name": "odd-error_object",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "basic error object for models",
   "main": "lib/odd-error_object.js",
   "scripts": {

@@ -37,6 +37,49 @@ describe('Errors#record', () => {
     expect(() => errors.record({ message: 'Request aborted' })).to.not.throw()
     expect(errors.any()).to.equal(false)
   })
+
+  it('完全不傳參數也不會拋例外', () => {
+    const errors = new Errors()
+
+    expect(() => errors.record()).to.not.throw()
+    expect(errors.any()).to.equal(false)
+  })
+
+  // has / any / get / clear 都無條件讀 this.errors.validation_errors，所以
+  // record() 存進去的東西必須永遠帶著那個欄位，否則錯誤是延後在下一次
+  // 取用時才爆，而且爆在跟成因無關的地方。
+  it('422 但沒有 data 時，後續取用不會拋例外', () => {
+    const errors = new Errors()
+
+    errors.record({ response: { status: 422 } })
+
+    expect(() => errors.has('name')).to.not.throw()
+    expect(errors.any()).to.equal(false)
+  })
+
+  it('422 但 data 沒有 validation_errors 時，後續取用不會拋例外', () => {
+    const errors = new Errors()
+
+    errors.record({ response: { status: 422, data: { error: '帳號或密碼錯誤' } } })
+
+    expect(() => errors.has('name')).to.not.throw()
+    expect(errors.any()).to.equal(false)
+  })
+
+  // 預設值若是 module-level 的單一物件，所有 instance 會共用它。目前沒有
+  // 寫入路徑所以還沒出事，但只要有人加一個會寫進 validation_errors 的方法
+  // 就會跨 instance 汙染。用工廠函式從結構上排除。
+  it('每個 instance 拿到自己的預設物件，不共用', () => {
+    expect(new Errors().all()).to.not.equal(new Errors().all())
+  })
+
+  it('clear() 之後拿到的也是自己的預設物件', () => {
+    const errors = new Errors()
+
+    errors.clear()
+
+    expect(errors.all()).to.not.equal(new Errors().all())
+  })
 })
 
 // package.json 的 main 指向 lib/，使用端 import 進去的是打包後的檔案而不是
@@ -57,5 +100,14 @@ describe('Errors#record（使用端實際載入的 lib/）', () => {
     })
 
     expect(errors.get('name')).to.deep.equal(['不能空白'])
+  })
+
+  it('422 但 data 形狀不符時，後續取用不會拋例外', () => {
+    const errors = new BuiltErrors()
+
+    errors.record({ response: { status: 422, data: { error: '帳號或密碼錯誤' } } })
+
+    expect(() => errors.has('name')).to.not.throw()
+    expect(errors.any()).to.equal(false)
   })
 })

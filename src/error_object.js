@@ -1,11 +1,14 @@
-const DEFAULT_ERROR_OBJECT = { validation_errors: {} }
+// 工廠而非共用常數：共用同一個物件的話，任何寫進 validation_errors 的
+// 操作都會跨 instance 汙染。目前沒有那種寫入路徑，但沒有東西擋著日後
+// 加一個，從結構上排除比留著地雷便宜。
+const defaultErrorObject = () => ({ validation_errors: {} })
 
 export default class Errors {
   /**
    * 建立 Errors 的 instance
    */
   constructor() {
-    this.errors = DEFAULT_ERROR_OBJECT
+    this.errors = defaultErrorObject()
   }
 
   /**
@@ -62,14 +65,20 @@ export default class Errors {
    * 請求被中止都會產生沒有 response 的 error，而那不是邊緣情況 —— 呼叫端
    * 是統一的 API 失敗處理路徑，任何一種失敗都會走到這裡。
    *
+   * has / any / get / clear 都無條件讀 this.errors.validation_errors，所以這裡
+   * 存進去的東西必須永遠帶著那個欄位。422 的 body 不保證是預期的形狀 ——
+   * 沒有 body、或是 { error: '...' } 這類 bespoke 形狀都可能出現 —— 直接存
+   * 下去的話錯誤會延後到下一次取用才爆，而且爆在跟成因無關的地方。
+   *
    * @param {Object} errors axios 的 error 物件，不保證帶 response
    */
   record(errors) {
     if (!errors || !errors.response) return
+    if (errors.response.status !== 422) return
 
-    if (errors.response.status === 422) {
-      this.errors = errors.response.data
-    }
+    const data = errors.response.data
+
+    this.errors = data && data.validation_errors ? data : defaultErrorObject()
   }
 
   /**
@@ -84,6 +93,6 @@ export default class Errors {
       return
     }
 
-    this.errors = DEFAULT_ERROR_OBJECT
+    this.errors = defaultErrorObject()
   }
 }
